@@ -35,7 +35,7 @@ from segment_one_ad import segment_one_ad
 # CONFIG
 # =========================
 
-VIDEO_INPUT = "data/screencap NU onderzoek (2).mp4"
+VIDEO_INPUT = "data/input/screencap NU onderzoek (2).mp4"
 SAM_MODEL_PATH = "sam2.1_s.pt"
 
 
