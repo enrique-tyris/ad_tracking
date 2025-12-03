@@ -33,9 +33,7 @@ from pathlib import Path
 def get_output_dir(video_path):
     """Generate output directory based on video filename"""
     video_name = Path(video_path).stem  # Get filename without extension
-    # Clean the name (replace spaces and special chars with _)
-    clean_name = video_name.replace(" ", "_").replace("(", "").replace(")", "")
-    output_dir = f"data/output/{clean_name}"
+    output_dir = f"data/output/{video_name}"
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
 
