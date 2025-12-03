@@ -21,14 +21,13 @@ Output format (ads_annotations.txt):
 import cv2
 import json
 import os
+import argparse
 from pathlib import Path
 
 
 # =========================
 # CONFIG
 # =========================
-
-VIDEO_INPUT = "data/input/screencap NU onderzoek (2).mp4"
 
 # Auto-generate output directory based on video name
 def get_output_dir(video_path):
@@ -40,8 +39,6 @@ def get_output_dir(video_path):
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
 
-OUTPUT_DIR = get_output_dir(VIDEO_INPUT)
-ANNOTATIONS_FILE = os.path.join(OUTPUT_DIR, "ads_annotations.txt")
 
 
 # =========================
@@ -285,6 +282,13 @@ class AnnotationTool:
 # =========================
 
 if __name__ == "__main__":
-    tool = AnnotationTool(VIDEO_INPUT, ANNOTATIONS_FILE)
+    parser = argparse.ArgumentParser(description="Interactive tool to manually annotate ads in a video")
+    parser.add_argument('--video', '-v', type=str, required=True, help='Path to the input video file')
+    args = parser.parse_args()
+    
+    output_dir = get_output_dir(args.video)
+    annotations_file = os.path.join(output_dir, "ads_annotations.txt")
+    
+    tool = AnnotationTool(args.video, annotations_file)
     tool.run()
 
