@@ -35,8 +35,7 @@ from segment_one_ad import segment_one_ad
 # CONFIG
 # =========================
 
-VIDEO_INPUT = "data/input/screencap NU onderzoek (2).mp4"
-SAM_MODEL_PATH = "sam2.1_s.pt"
+SAM_MODEL_PATH = "sam2.1_s.pt"  # Default SAM model path
 
 
 # =========================
@@ -47,17 +46,9 @@ def get_output_dir(video_path):
     """Generate output directory based on video filename"""
     from pathlib import Path
     video_name = Path(video_path).stem
-    clean_name = video_name.replace(" ", "_").replace("(", "").replace(")", "")
-    output_dir = f"data/output/{clean_name}"
+    output_dir = f"data/output/{video_name}"
     os.makedirs(output_dir, exist_ok=True)
     return output_dir
-
-
-# Auto-generate paths based on video
-OUTPUT_BASE = get_output_dir(VIDEO_INPUT)
-ANNOTATIONS_FILE = os.path.join(OUTPUT_BASE, "ads_annotations.txt")
-OUTPUT_DIR = os.path.join(OUTPUT_BASE, "detections")
-MASTER_OUTPUT_FILE = os.path.join(OUTPUT_BASE, "all_detections.txt")
 
 
 # =========================
@@ -293,33 +284,67 @@ def load_existing_progress(master_output_file):
 
 
 # =========================
-# MAIN
+# PROCESS SINGLE VIDEO
 # =========================
 
-def main(video_path, annotations_path, output_dir, master_output_file, sam_model_path):
+def process_single_video(video_path, sam_model_path=SAM_MODEL_PATH, skip_existing=None):
     """
-    Main batch processing function.
+    Process a single video with all its annotated ads.
     
     Args:
         video_path: Path to video
-        annotations_path: Path to annotations file
-        output_dir: Output directory for individual detections
-        master_output_file: Path to master output file
-        sam_model_path: Path to SAM2 model
+        sam_model_path: Path to SAM2 model (default: SAM_MODEL_PATH)
+        skip_existing: If None, will ask user interactively. If True/False, will use that value.
+    
+    Returns:
+        Summary dict
     """
+    # Validate video exists
+    if not os.path.exists(video_path):
+        raise FileNotFoundError(f"Video file not found: {video_path}")
+    
+    # Auto-generate paths
+    output_base = get_output_dir(video_path)
+    annotations_path = os.path.join(output_base, "ads_annotations.txt")
+    output_dir = os.path.join(output_base, "detections")
+    master_output_file = os.path.join(output_base, "all_detections.txt")
+    
+    # Validate annotations exist
+    if not os.path.exists(annotations_path):
+        raise FileNotFoundError(
+            f"Annotations file not found: {annotations_path}\n"
+            f"Please run annotate_video.py first to create annotations."
+        )
+    
+    # Print info
+    print(f"📹 Video: {video_path}")
+    print(f"📄 Annotations: {annotations_path}")
+    print(f"📁 Output directory: {output_dir}")
+    print(f"📄 Master output: {master_output_file}\n")
+    
     # Create queue
     queue = DetectionQueue(video_path, annotations_path, output_dir, sam_model_path)
     
     # Reconstruct master from existing JSONs
     ads_registry = reconstruct_master_from_jsons(queue.annotations, output_dir)
     
-    if ads_registry:
-        print(f"📂 Found {len(ads_registry)}/{len(queue.annotations)} ads already processed")
-        response = input("Skip already processed ads? (y/n): ")
-        skip_existing = response.lower() == 'y'
+    # Determine skip_existing behavior
+    if skip_existing is None:
+        # Interactive mode - ask user
+        if ads_registry:
+            print(f"📂 Found {len(ads_registry)}/{len(queue.annotations)} ads already processed")
+            response = input("Skip already processed ads? (y/n): ")
+            skip_existing = response.lower() == 'y'
+        else:
+            print("📂 No existing detections found, processing all ads")
+            skip_existing = False
     else:
-        print("📂 No existing detections found, processing all ads")
-        skip_existing = False
+        # Non-interactive mode - use provided value
+        if ads_registry:
+            action = "Skipping" if skip_existing else "Reprocessing"
+            print(f"📂 Found {len(ads_registry)}/{len(queue.annotations)} ads already processed - {action}")
+        else:
+            print("📂 No existing detections found, processing all ads")
     
     # Process all
     summary = queue.process_all(skip_existing=skip_existing, master_output_file=master_output_file)
@@ -337,33 +362,149 @@ def main(video_path, annotations_path, output_dir, master_output_file, sam_model
 
 
 # =========================
+# BATCH MODE - Process all videos with annotations
+# =========================
+
+def find_all_annotated_videos(output_base_dir="data/output"):
+    """
+    Find all videos that have ads_annotations.txt in output directory.
+    
+    Returns:
+        List of tuples: [(video_name, annotations_path, output_dir), ...]
+    """
+    videos_to_process = []
+    
+    if not os.path.exists(output_base_dir):
+        return videos_to_process
+    
+    for video_dir in os.listdir(output_base_dir):
+        video_dir_path = os.path.join(output_base_dir, video_dir)
+        
+        if not os.path.isdir(video_dir_path):
+            continue
+        
+        annotations_path = os.path.join(video_dir_path, "ads_annotations.txt")
+        
+        if os.path.exists(annotations_path):
+            # Try to find corresponding video in input directory
+            # Assume video is in data/input/ with same name
+            video_path = f"data/input/{video_dir}.mp4"
+            
+            if os.path.exists(video_path):
+                output_dir = os.path.join(video_dir_path, "detections")
+                master_output = os.path.join(video_dir_path, "all_detections.txt")
+                
+                videos_to_process.append({
+                    'video_name': video_dir,
+                    'video_path': video_path,
+                    'annotations_path': annotations_path,
+                    'output_dir': output_dir,
+                    'master_output': master_output
+                })
+            else:
+                print(f"⚠️  Found annotations but no video: {video_dir}")
+    
+    return videos_to_process
+
+
+def process_all_videos(videos_list):
+    """
+    Process all videos in the list.
+    
+    Args:
+        videos_list: List of video info dicts
+    """
+    # Validate we have videos to process
+    if not videos_list:
+        print("❌ No videos with annotations found in data/output/")
+        print("   Please run annotate_video.py first to create annotations.")
+        return []
+    
+    print("\n" + "="*60)
+    print("BATCH MODE - PROCESSING ALL ANNOTATED VIDEOS")
+    print("="*60)
+    print(f"Found {len(videos_list)} videos with annotations")
+    print("="*60 + "\n")
+    
+    # Ask once for all videos
+    response = input("Skip already processed ads for all videos? (y/n): ")
+    skip_existing = response.lower() == 'y'
+    print()
+    
+    results = []
+    
+    for idx, video_info in enumerate(videos_list, 1):
+        print(f"\n{'='*60}")
+        print(f"VIDEO {idx}/{len(videos_list)}: {video_info['video_name']}")
+        print(f"{'='*60}")
+        
+        try:
+            summary = process_single_video(
+                video_info['video_path'],
+                skip_existing=skip_existing  # Pass the batch decision
+            )
+            
+            results.append({
+                'video_name': video_info['video_name'],
+                'status': 'completed',
+                'processed_ads': summary['processed_ads'],
+                'failed_ads': summary['failed_ads']
+            })
+            
+        except Exception as e:
+            print(f"❌ Failed to process {video_info['video_name']}: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            results.append({
+                'video_name': video_info['video_name'],
+                'status': 'failed',
+                'error': str(e)
+            })
+    
+    # Print final summary
+    print("\n" + "="*60)
+    print("BATCH PROCESSING COMPLETE")
+    print("="*60)
+    
+    completed = sum(1 for r in results if r['status'] == 'completed')
+    failed = sum(1 for r in results if r['status'] == 'failed')
+    
+    print(f"✅ Completed: {completed}/{len(results)}")
+    print(f"❌ Failed: {failed}/{len(results)}")
+    
+    if failed > 0:
+        print("\nFailed videos:")
+        for r in results:
+            if r['status'] == 'failed':
+                print(f"  - {r['video_name']}: {r.get('error', 'Unknown error')}")
+    
+    print("="*60 + "\n")
+    
+    return results
+
+
+# =========================
 # CLI
 # =========================
 
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Batch process all annotated ads")
-    parser.add_argument("--video", default=VIDEO_INPUT, help="Path to video file")
-    
+    parser = argparse.ArgumentParser()
+ 
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--video', '-v', type=str, help='Path to single video file')
+    group.add_argument('--all', action='store_true', help='Process all videos with ads_annotations.txt in data/output/')
     args = parser.parse_args()
     
-    # Auto-generate paths
-    output_base = get_output_dir(args.video)
-    annotations_path = os.path.join(output_base, "ads_annotations.txt")
-    output_dir = os.path.join(output_base, "detections")
-    master_output = os.path.join(output_base, "all_detections.txt")
+    if args.all:
+        # Batch mode: process all videos with annotations
+        videos_list = find_all_annotated_videos()
+        process_all_videos(videos_list)
     
-    print(f"Using annotations: {annotations_path}")
-    print(f"Using output directory: {output_dir}")
-    print(f"Using master output: {master_output}")
-    
-    # Run main
-    main(
-        args.video,
-        annotations_path,
-        output_dir,
-        master_output,
-        SAM_MODEL_PATH
-    )
+    else:
+        # Single video mode
+        process_single_video(args.video)
+
 
