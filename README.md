@@ -8,25 +8,21 @@ Automatic detection and tracking of advertisements in screen recordings using SA
 pip install -r requirements.txt
 ```
 
-## Pipeline Steps
+## Pipeline
 
 ### 1. Annotate Ads
 
 Manually mark all advertisements in your video:
 
 ```bash
-python code/annotate_video.py
-```
-
-**Configuration:**
-```python
-VIDEO_INPUT = "data/input/your_video.mp4"
+python code/annotate_video.py --video "data/input/your_video.mp4"
 ```
 
 **Tips:**
 - Set window to fullscreen for better visualization
 - Mark the first frame where each ad appears (will be tracked forward based on seconds indicated in Step 2 config)
 - Follow commands shown in terminal
+- After confirming a bbox, a popup will ask for a name for the ad
 
 **Output:** `data/output/{video_name}/ads_annotations.txt`
 
@@ -37,13 +33,16 @@ VIDEO_INPUT = "data/input/your_video.mp4"
 Automatically segment all annotated ads with SAM2:
 
 ```bash
-python code/inference_on_queue.py
+# Single video
+python code/inference_on_queue.py --video "data/input/your_video.mp4"
+
+# Batch mode (all videos with annotations)
+python code/inference_on_queue.py --all
 ```
 
-**Configuration:**
+**Configuration (in `detect_one_ad.py`):**
 ```python
-VIDEO_INPUT = "data/input/your_video.mp4"
-SAM_MODEL_PATH = "sam2.1_s.pt"  # small model, change 's' to 'b' (base) if more precision needed
+SAM_MODEL_PATH = "sam2.1_s.pt"  # small model, change 's' to 'b' for more precision
 TIME_WINDOW_AFTER = 15.0  # seconds to track forward
 ```
 
@@ -53,10 +52,8 @@ TIME_WINDOW_AFTER = 15.0  # seconds to track forward
 
 The script will:
 - Find existing processed ads
-- Ask if you want to skip them
-- Process remaining ads with SAM2
-- Save individual detection JSONs
-- Update master file after each ad
+- Process ads with SAM2
+- Save individual JSON and update master file after each ad
 
 **Output:**
 - `data/output/{video_name}/detections/ad_*_detections.json` (individual)
@@ -69,15 +66,30 @@ The script will:
 Generate annotated video with all detections:
 
 ```bash
-python code/visualize_final_result.py
-```
-
-**Configuration:**
-```python
-VIDEO_INPUT = "data/input/your_video.mp4"
+python code/visualize_final_result.py --video "data/input/your_video.mp4"
 ```
 
 **Output:** `data/output/{video_name}/{video_name}_annotated.mp4`
+
+---
+
+### 4. Modify Detections (Optional)
+
+Interactively review and edit detections:
+
+```bash
+python code/modify_ads.py --video "data/input/your_video.mp4"
+```
+
+⚠️ **Backup `all_detections.txt` and `detections/` folder before using!**
+
+**Features:**
+- Navigate between ads
+- Modify and delete boxes in each frame
+- Edit names and delete entire ads
+- Changes only saved when pressing `s` or confirming on exit
+
+**Output:** Modified files in `data/output/{video_name}/detections/` and `all_detections.txt`
 
 ---
 
@@ -99,7 +111,9 @@ ad_tracking/
 │           └── {video_name}_annotated.mp4  # Final video
 ├── code/
 │   ├── annotate_video.py           # Step 1
+│   ├── detect_one_ad.py            # Step 2 (used by inference_on_queue)
 │   ├── inference_on_queue.py       # Step 2
+│   ├── modify_ads.py               # Step 4 (optional)
 │   └── visualize_final_result.py   # Step 3
-└── sam2.1_s.pt                     # SAM2 model (example: SMALL model)
+└── sam2.1_s.pt                     # SAM2 model (small, use sam2.1_b.pt for base)
 ```
