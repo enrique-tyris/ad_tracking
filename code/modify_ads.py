@@ -217,7 +217,7 @@ class DetectionEditor:
         current_name = self.ad_name if self.ad_name else ""
         answer = simpledialog.askstring(
             title=f"Edit name for {self.ad_id}",
-            prompt="Introduce un nombre (opcional):",
+            prompt="Enter ad name (optional):",
             initialvalue=current_name
         )
         

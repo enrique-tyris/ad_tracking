@@ -151,8 +151,8 @@ class AnnotationTool:
         root.withdraw()  # Hide root window
         
         answer = simpledialog.askstring(
-            title="Nombre del anuncio",
-            prompt="Introduce un nombre (opcional):"
+            title="Ad Name",
+            prompt="Enter ad name (optional):"
         )
         
         root.destroy()
