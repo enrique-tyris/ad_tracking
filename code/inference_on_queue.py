@@ -3,7 +3,7 @@ inference_on_queue.py
 
 Batch processing pipeline for all annotated ads.
 - Reads ads_annotations.txt
-- Processes each ad with segment_one_ad.py
+- Processes each ad with detect_one_ad.py
 - Saves individual detection files
 - Creates master detections file combining all results
 
@@ -27,8 +27,8 @@ from pathlib import Path
 from tqdm import tqdm
 import time
 
-# Import our segment_one_ad module
-from segment_one_ad import segment_one_ad
+# Import our detect_one_ad module
+from detect_one_ad import detect_one_ad
 
 
 # =========================
@@ -116,7 +116,7 @@ class DetectionQueue:
             ad_annotation = ad_data.copy()
             ad_annotation['ad_id'] = ad_id
             
-            result = segment_one_ad(
+            result = detect_one_ad(
                 self.video_path,
                 ad_annotation,
                 self.output_dir,

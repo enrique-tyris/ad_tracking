@@ -1,5 +1,5 @@
 """
-segment_one_ad.py
+detect_one_ad.py
 
 Detect and segment a single ad using SAM2 video segmentation.
 - Takes one annotated ad (bbox + frame at first detection)
@@ -199,7 +199,7 @@ def parse_sam2_results(results, start_frame):
 # MAIN PROCESSING
 # =========================
 
-def segment_one_ad(video_path, ad_annotation, output_dir=None, sam_model_path=SAM_MODEL_PATH):
+def detect_one_ad(video_path, ad_annotation, output_dir=None, sam_model_path=SAM_MODEL_PATH):
     """
     Process one ad annotation and generate detections.
     
@@ -326,5 +326,5 @@ if __name__ == "__main__":
     ad_annotation['ad_id'] = args.ad_id
     
     # Process
-    segment_one_ad(args.video, ad_annotation, output_dir, SAM_MODEL_PATH)
+    detect_one_ad(args.video, ad_annotation, output_dir, SAM_MODEL_PATH)
 
