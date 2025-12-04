@@ -32,13 +32,6 @@ from detect_one_ad import detect_one_ad
 
 
 # =========================
-# CONFIG
-# =========================
-
-SAM_MODEL_PATH = "sam2.1_s.pt"  # Default SAM model path
-
-
-# =========================
 # OUTPUT DIRECTORY HELPER
 # =========================
 
@@ -56,11 +49,10 @@ def get_output_dir(video_path):
 # =========================
 
 class DetectionQueue:
-    def __init__(self, video_path, annotations_path, output_dir, sam_model_path):
+    def __init__(self, video_path, annotations_path, output_dir):
         self.video_path = video_path
         self.annotations_path = annotations_path
         self.output_dir = output_dir
-        self.sam_model_path = sam_model_path
         
         # Load annotations
         self.annotations = self.load_annotations()
@@ -119,8 +111,7 @@ class DetectionQueue:
             result = detect_one_ad(
                 self.video_path,
                 ad_annotation,
-                self.output_dir,
-                self.sam_model_path
+                self.output_dir
             )
             
             return True, result
@@ -289,13 +280,12 @@ def load_existing_progress(master_output_file):
 # PROCESS SINGLE VIDEO
 # =========================
 
-def process_single_video(video_path, sam_model_path=SAM_MODEL_PATH, skip_existing=None):
+def process_single_video(video_path, skip_existing=None):
     """
     Process a single video with all its annotated ads.
     
     Args:
         video_path: Path to video
-        sam_model_path: Path to SAM2 model (default: SAM_MODEL_PATH)
         skip_existing: If None, will ask user interactively. If True/False, will use that value.
     
     Returns:
@@ -325,7 +315,7 @@ def process_single_video(video_path, sam_model_path=SAM_MODEL_PATH, skip_existin
     print(f"📄 Master output: {master_output_file}\n")
     
     # Create queue
-    queue = DetectionQueue(video_path, annotations_path, output_dir, sam_model_path)
+    queue = DetectionQueue(video_path, annotations_path, output_dir)
     
     # Reconstruct master from existing JSONs
     ads_registry = reconstruct_master_from_jsons(queue.annotations, output_dir)
