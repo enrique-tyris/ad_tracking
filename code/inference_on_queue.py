@@ -170,6 +170,7 @@ class DetectionQueue:
                         "output_file": output_file,
                         "annotation_frame": result.get('annotation_frame', ad_data['frame_idx']),
                         "annotation_bbox": result.get('annotation_bbox', ad_data['bbox']),
+                        "name": result.get('name', ad_data.get('name')),
                     }
                 else:
                     # Newly processed
@@ -178,6 +179,7 @@ class DetectionQueue:
                         "output_file": output_file,
                         "annotation_frame": ad_data['frame_idx'],
                         "annotation_bbox": ad_data['bbox'],
+                        "name": ad_data.get('name'),
                     }
             else:
                 self.failed.append({

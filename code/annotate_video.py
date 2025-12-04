@@ -12,7 +12,8 @@ Output format (ads_annotations.txt):
     "ad_1": {
         "frame_idx": 150,
         "bbox": [x1, y1, x2, y2],  # full frame coordinates
-        "timestamp": "00:05:00"
+        "timestamp": "00:05:00",
+        "name": "Product Name"  # optional, None by default
     },
     ...
 }
@@ -23,6 +24,8 @@ import json
 import os
 import argparse
 from pathlib import Path
+import tkinter as tk
+from tkinter import simpledialog
 
 
 # =========================
@@ -31,7 +34,10 @@ from pathlib import Path
 
 # Auto-generate output directory based on video name
 def get_output_dir(video_path):
-    """Generate output directory based on video filename"""
+    """Generate output directory based on video filename (only if video exists)"""
+    if not os.path.exists(video_path):
+        raise FileNotFoundError(f"Video file not found: {video_path}")
+    
     video_name = Path(video_path).stem  # Get filename without extension
     output_dir = f"data/output/{video_name}"
     os.makedirs(output_dir, exist_ok=True)
@@ -114,7 +120,17 @@ class AnnotationTool:
                 # Draw in green (saved)
                 color = (0, 255, 0)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(frame, ad_id, (x1, y1-5), 
+                
+                # Show ad_id and name (if exists)
+                label = ad_id
+                ad_name = data.get('name')
+                if ad_name:
+                    # Truncate name to 15 characters
+                    if len(ad_name) > 15:
+                        ad_name = ad_name[:15] + "..."
+                    label = f"{ad_id}: {ad_name}"
+                
+                cv2.putText(frame, label, (x1, y1-5), 
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         return frame
     
@@ -129,6 +145,19 @@ class AnnotationTool:
                 self.p2 = (x, y)
                 self.bbox_confirmed = True  # Bbox ready to save (yellow)
     
+    def ask_ad_name(self):
+        """Show popup to ask for ad name"""
+        root = tk.Tk()
+        root.withdraw()  # Hide root window
+        
+        answer = simpledialog.askstring(
+            title="Nombre del anuncio",
+            prompt="Introduce un nombre (opcional):"
+        )
+        
+        root.destroy()
+        return answer if answer and answer.strip() else None
+    
     def add_annotation(self):
         """Add current bbox as new annotation"""
         if not self.bbox_confirmed or self.p1 is None or self.p2 is None:
@@ -140,14 +169,19 @@ class AnnotationTool:
         xmin, xmax = sorted([x1, x2])
         ymin, ymax = sorted([y1, y2])
         
+        # Ask for ad name
+        ad_name = self.ask_ad_name()
+        
         ad_id = f"ad_{self.next_ad_id}"
         self.annotations[ad_id] = {
             "frame_idx": self.current_frame_idx,
             "bbox": [xmin, ymin, xmax, ymax],
-            "timestamp": self.frame_to_timestamp(self.current_frame_idx)
+            "timestamp": self.frame_to_timestamp(self.current_frame_idx),
+            "name": ad_name
         }
         
-        print(f"✅ Added {ad_id} at frame {self.current_frame_idx}")
+        name_str = f" - '{ad_name}'" if ad_name else ""
+        print(f"✅ Added {ad_id}{name_str} at frame {self.current_frame_idx}")
         self.next_ad_id += 1
         self.p1 = self.p2 = None
         self.bbox_confirmed = False
@@ -182,7 +216,7 @@ class AnnotationTool:
         print("")
         print("Annotation:")
         print("  Click x2    : Define bbox (yellow)")
-        print("  ENTER       : Save bbox (green)")
+        print("  ENTER       : Save bbox + name popup (green)")
         print("  BACKSPACE   : Delete ad at current frame")
         print("")
         print("  q           : Quit and save")

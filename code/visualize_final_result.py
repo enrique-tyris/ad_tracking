@@ -23,8 +23,6 @@ from collections import defaultdict
 # CONFIG
 # =========================
 
-VIDEO_INPUT = "data/input/screencap NU onderzoek (2).mp4"
-
 # Colors for different ads (cycling)
 COLORS = [
     (255, 0, 0),    # Blue
@@ -71,7 +69,7 @@ def load_all_detections(output_dir):
     Load master file and all individual detection JSONs.
     
     Returns:
-        Dict: {frame_idx: [(ad_id, bbox), ...]}
+        Dict: {frame_idx: [(ad_id, bbox, name), ...]}
     """
     master_file = os.path.join(output_dir, "all_detections.txt")
     
@@ -99,6 +97,9 @@ def load_all_detections(output_dir):
             print(f"⚠️  Detection file not found: {detection_file}")
             continue
         
+        # Get ad name from master registry
+        ad_name = ad_info.get('name')
+        
         # Load detection JSON
         with open(detection_file, 'r') as f:
             detections = json.load(f)
@@ -107,7 +108,7 @@ def load_all_detections(output_dir):
         for detection in detections['detections']:
             frame_idx = detection['frame_idx']
             bbox = detection['bbox']
-            frame_detections[frame_idx].append((ad_id, bbox))
+            frame_detections[frame_idx].append((ad_id, bbox, ad_name))
     
     print(f"Total frames with detections: {len(frame_detections)}")
     
@@ -124,7 +125,7 @@ def visualize_and_save(video_path, frame_detections, output_path):
     
     Args:
         video_path: Path to input video
-        frame_detections: Dict {frame_idx: [(ad_id, bbox), ...]}
+        frame_detections: Dict {frame_idx: [(ad_id, bbox, name), ...]}
         output_path: Path to output video
     """
     print(f"\n{'='*60}")
@@ -158,15 +159,21 @@ def visualize_and_save(video_path, frame_detections, output_path):
         
         # Draw detections for this frame
         if frame_idx in frame_detections:
-            for ad_id, bbox in frame_detections[frame_idx]:
+            for ad_id, bbox, ad_name in frame_detections[frame_idx]:
                 x1, y1, x2, y2 = bbox
                 color = get_color_for_ad(ad_id)
                 
                 # Draw bbox
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 
-                # Draw ad_id label
+                # Draw ad_id label with name (if exists)
                 label = ad_id
+                if ad_name:
+                    # Truncate name to 15 characters
+                    if len(ad_name) > 15:
+                        ad_name = ad_name[:15] + "..."
+                    label = f"{ad_id}: {ad_name}"
+                
                 cv2.putText(frame, label, (x1, y1 - 5),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         
@@ -215,7 +222,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Visualize detections on video")
-    parser.add_argument("--video", default=VIDEO_INPUT, help="Path to video file")
+    parser.add_argument("--video", "-v", required=True, help="Path to video file")
     
     args = parser.parse_args()
     
